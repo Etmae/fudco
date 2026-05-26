@@ -1,0 +1,1 @@
+web: python manage.py migrate && python manage.py collectstatic --noinput && python manage.py seed_manager && python manage.py seed_sales && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT

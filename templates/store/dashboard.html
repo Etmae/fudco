@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — FudCo{% endblock %}
+{% block nav_home %}active{% endblock %}
+{% block nav_home_icon %}active{% endblock %}
+{% block nav_home_bottom %}active{% endblock %}
+{% block page_title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+
+  <div class="bg-white rounded-2xl border border-slate-200/80 p-5 md:p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+    <div class="w-11 h-11 md:w-12 md:h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+      <i class="fa-solid fa-layer-group text-base md:text-lg"></i>
+    </div>
+    <div class="min-w-0">
+      <p class="text-slate-400 text-[10px] uppercase font-bold tracking-wider leading-none">
+        Total Products
+      </p>
+      <p class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight mt-1.5">{{ total_products }}</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-200/80 p-5 md:p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+    <div class="w-11 h-11 md:w-12 md:h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+      <i class="fa-solid fa-naira-sign text-base md:text-lg"></i>
+    </div>
+    <div class="min-w-0">
+      <p class="text-slate-400 text-[10px] uppercase font-bold tracking-wider leading-none">
+        Today's Revenue
+      </p>
+      <p class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight mt-1.5">
+        ₦{{ revenue_today|floatformat:0 }}
+      </p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-200/80 p-5 md:p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+    <div class="w-11 h-11 md:w-12 md:h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
+      <i class="fa-solid fa-receipt text-base md:text-lg"></i>
+    </div>
+    <div class="min-w-0">
+      <p class="text-slate-400 text-[10px] uppercase font-bold tracking-wider leading-none">
+        Transactions
+      </p>
+      <p class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight mt-1.5">{{ transactions_today }}</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-200/80 p-5 md:p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+    <div class="w-11 h-11 md:w-12 md:h-12 {% if low_stock_count > 0 %}bg-rose-50 text-rose-600{% else %}bg-slate-100 text-slate-400{% endif %} rounded-xl flex items-center justify-center shrink-0">
+      <i class="fa-solid fa-triangle-exclamation text-base md:text-lg"></i>
+    </div>
+    <div class="min-w-0">
+      <p class="text-slate-400 text-[10px] uppercase font-bold tracking-wider leading-none">Low Stock</p>
+      <p class="text-xl md:text-2xl font-bold {% if low_stock_count > 0 %}text-rose-600{% else %}text-slate-900{% endif %} tracking-tight mt-1.5">
+        {{ low_stock_count }}
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-200/80 p-5 md:p-6 mb-6 md:mb-8">
+  <div class="flex items-center gap-2 mb-6">
+    <div class="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
+    <h3 class="font-bold text-slate-800 text-sm tracking-tight">
+      Revenue Trends — Last 7 Days
+    </h3>
+  </div>
+  <div class="relative w-full overflow-hidden">
+    <canvas id="dashRevenueChart" height="80"
+            data-labels="{{ chart_labels|safe }}"
+            data-values="{{ chart_data|safe }}">
+    </canvas>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+  <div class="xl:col-span-2 bg-white rounded-2xl border border-slate-200/80 overflow-hidden flex flex-col justify-between">
+    <div>
+      <div class="px-5 py-4 border-b border-slate-100/80 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-sm tracking-tight">Recent Transactions</h3>
+        <a href="{% url 'store:reports' %}" class="text-emerald-600 text-xs font-semibold hover:text-emerald-700 transition-colors bg-emerald-50 px-2.5 py-1 rounded-lg">
+          View all logs
+        </a>
+      </div>
+      {% if recent_sales %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[480px]">
+            <thead>
+              <tr class="bg-slate-50/70 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-100">
+                <th class="px-5 py-3.5 text-left font-bold">Receipt ID</th>
+                <th class="px-5 py-3.5 text-left font-bold">Cashier Account</th>
+                <th class="px-5 py-3.5 text-left font-bold">Total Settled</th>
+                <th class="px-5 py-3.5 text-left font-bold">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100/80">
+              {% for sale in recent_sales %}
+              <tr class="hover:bg-slate-50/50 transition-colors group">
+                <td class="px-5 py-3.5 font-semibold text-slate-800 text-xs font-mono tracking-tight">
+                  <a href="{% url 'store:receipt' sale.pk %}" class="text-blue-600 hover:underline">
+                    {{ sale.receipt_number }}
+                  </a>
+                </td>
+                <td class="px-5 py-3.5 text-slate-600 font-medium">
+                  {{ sale.cashier.get_full_name|default:sale.cashier.username }}
+                </td>
+                <td class="px-5 py-3.5 font-bold text-emerald-600">
+                  ₦{{ sale.total_amount|floatformat:0 }}
+                </td>
+                <td class="px-5 py-3.5 text-slate-400 font-medium text-xs">
+                  {{ sale.created_at|date:"d M, H:i" }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="px-5 py-16 text-center my-auto">
+          <div class="w-12 h-12 bg-slate-50 text-slate-300 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <i class="fa-solid fa-receipt text-lg"></i>
+          </div>
+          <p class="text-slate-400 text-xs font-medium">No sales transactions compiled yet today.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden flex flex-col justify-between">
+    <div>
+      <div class="px-5 py-4 border-b border-slate-100/80">
+        <h3 class="font-bold text-slate-800 text-sm tracking-tight flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-amber-500"></i>
+          Restock Priorities
+        </h3>
+      </div>
+      
+      {% if low_stock_count > 0 %}
+        <ul class="divide-y divide-slate-100/80 overflow-y-auto max-h-[360px]">
+          {% for product in low_stock_products %}
+          <li class="px-5 py-3.5 flex items-center justify-between hover:bg-slate-50/40 transition-colors">
+            <div class="min-w-0 mr-3">
+              <p class="text-sm font-semibold text-slate-700 truncate tracking-tight">{{ product.name }}</p>
+              <p class="text-[11px] font-medium text-slate-400 mt-0.5">Limit Threshold: {{ product.restock_threshold }} units</p>
+            </div>
+            <span class="text-[11px] font-bold px-2.5 py-1 rounded-xl shrink-0 tracking-tight
+              {% if product.quantity == 0 %}bg-rose-50 text-rose-600 border border-rose-100
+              {% else %}bg-amber-50 text-amber-700 border border-amber-100{% endif %}">
+              {% if product.quantity == 0 %}Depleted{% else %}{{ product.quantity }} Remaining{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="px-5 py-16 text-center my-auto flex flex-col justify-center">
+          <div class="w-12 h-12 bg-emerald-50 text-emerald-400 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <i class="fa-solid fa-circle-check text-lg"></i>
+          </div>
+          <p class="text-slate-400 text-xs font-medium">All item stock inventories are secure.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if low_stock_count > 0 %}
+      <div class="p-4 bg-slate-50/80 border-t border-slate-100 text-center">
+        <a href="{% url 'store:restock_alerts' %}" class="text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors inline-flex items-center gap-1.5">
+          Process stock batches <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

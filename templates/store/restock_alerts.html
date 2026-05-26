@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Restock Alerts — FudCo{% endblock %}
+{% block nav_alerts %}active{% endblock %}
+{% block nav_alerts_icon %}active{% endblock %}
+{% block nav_alerts_bottom %}active{% endblock %}
+{% block page_title %}Restock Alerts{% endblock %}
+
+{% block content %}
+
+<!-- Summary row -->
+<div class="grid grid-cols-3 gap-3 md:gap-5 mb-5 md:mb-7">
+  <div class="bg-white rounded-xl border border-red-200 p-3 md:p-5">
+    <div class="flex items-center gap-2 md:gap-3">
+      <div class="w-8 h-8 md:w-10 md:h-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-ban text-red-500 text-sm md:text-base"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-slate-400 text-xs uppercase tracking-wide leading-tight">Out of Stock</p>
+        <p class="text-xl md:text-2xl font-bold text-red-600">{{ out_of_stock.count }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl border border-amber-200 p-3 md:p-5">
+    <div class="flex items-center gap-2 md:gap-3">
+      <div class="w-8 h-8 md:w-10 md:h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-triangle-exclamation text-amber-500 text-sm md:text-base"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-slate-400 text-xs uppercase tracking-wide leading-tight">Low Stock</p>
+        <p class="text-xl md:text-2xl font-bold text-amber-600">{{ low_stock.count }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl border border-emerald-200 p-3 md:p-5">
+    <div class="flex items-center gap-2 md:gap-3">
+      <div class="w-8 h-8 md:w-10 md:h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-circle-check text-emerald-500 text-sm md:text-base"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-slate-400 text-xs uppercase tracking-wide leading-tight">Healthy</p>
+        <p class="text-xl md:text-2xl font-bold text-emerald-600">{{ healthy_count }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Out of stock -->
+{% if out_of_stock %}
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4 md:mb-5">
+  <div class="px-4 md:px-5 py-4 border-b border-slate-100 bg-red-50">
+    <h3 class="font-semibold text-red-700 text-sm flex items-center gap-2">
+      <i class="fa-solid fa-ban"></i> Out of Stock
+    </h3>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[480px]">
+      <thead>
+        <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide border-b border-slate-100">
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Product</th>
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Category</th>
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Threshold</th>
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Status</th>
+          {% if request.user.profile.is_manager %}
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Action</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for product in out_of_stock %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 md:px-5 py-3 font-medium text-slate-800">{{ product.name }}</td>
+          <td class="px-4 md:px-5 py-3 text-slate-500 capitalize">{{ product.get_category_display }}</td>
+          <td class="px-4 md:px-5 py-3 text-slate-500">{{ product.restock_threshold }}</td>
+          <td class="px-4 md:px-5 py-3">
+            <span class="bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+              Out of Stock
+            </span>
+          </td>
+          {% if request.user.profile.is_manager %}
+          <td class="px-4 md:px-5 py-3">
+            <a href="{% url 'store:product_edit' product.pk %}"
+               class="text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100
+                      px-3 py-1.5 rounded-lg transition-colors">
+              Restock
+            </a>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Low stock -->
+{% if low_stock %}
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <div class="px-4 md:px-5 py-4 border-b border-slate-100 bg-amber-50">
+    <h3 class="font-semibold text-amber-700 text-sm flex items-center gap-2">
+      <i class="fa-solid fa-triangle-exclamation"></i> Low Stock
+    </h3>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[520px]">
+      <thead>
+        <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide border-b border-slate-100">
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Product</th>
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Category</th>
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Remaining</th>
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Threshold</th>
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Status</th>
+          {% if request.user.profile.is_manager %}
+          <th class="px-4 md:px-5 py-3 text-left font-medium">Action</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for product in low_stock %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 md:px-5 py-3 font-medium text-slate-800">{{ product.name }}</td>
+          <td class="px-4 md:px-5 py-3 text-slate-500 capitalize">{{ product.get_category_display }}</td>
+          <td class="px-4 md:px-5 py-3 font-bold text-amber-600">{{ product.quantity }}</td>
+          <td class="px-4 md:px-5 py-3 text-slate-500">{{ product.restock_threshold }}</td>
+          <td class="px-4 md:px-5 py-3">
+            <span class="bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+              Low Stock
+            </span>
+          </td>
+          {% if request.user.profile.is_manager %}
+          <td class="px-4 md:px-5 py-3">
+            <a href="{% url 'store:product_edit' product.pk %}"
+               class="text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100
+                      px-3 py-1.5 rounded-lg transition-colors">
+              Restock
+            </a>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not out_of_stock and not low_stock %}
+<div class="bg-white rounded-xl border border-slate-200 py-16 md:py-20 text-center">
+  <i class="fa-solid fa-circle-check text-emerald-200 text-5xl mb-4"></i>
+  <p class="text-slate-500 font-medium">All stock levels are healthy</p>
+  <p class="text-slate-400 text-sm mt-1">No products are below their restock threshold.</p>
+</div>
+{% endif %}
+
+{% endblock %}

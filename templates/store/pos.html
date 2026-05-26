@@ -1,0 +1,483 @@
+{% extends 'base.html' %}
+{% block title %}Point of Sale — FudCo{% endblock %}
+{% block nav_pos %}active{% endblock %}
+{% block nav_pos_icon %}active{% endblock %}
+{% block nav_pos_bottom %}active{% endblock %}
+{% block page_title %}Point of Sale{% endblock %}
+
+{% block content %}
+
+<div class="md:hidden fixed bottom-20 right-4 z-30">
+  <button id="cart-toggle-btn"
+          class="w-14 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg
+                 flex items-center justify-center transition-colors relative">
+    <i class="fa-solid fa-cart-shopping text-xl"></i>
+    <span id="cart-badge-fab"
+          class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold
+                 w-5 h-5 rounded-full flex items-center justify-center leading-none
+                 {% if cart_count == 0 %}hidden{% endif %}">
+      {{ cart_count }}
+    </span>
+  </button>
+</div>
+
+<div id="cart-drawer-overlay"
+     class="md:hidden hidden fixed inset-0 bg-black bg-opacity-40 z-40"
+     onclick="closeCartDrawer()"></div>
+
+<div id="cart-drawer"
+     class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl
+            flex flex-col"
+     style="max-height: 85vh; transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);">
+
+  <div class="flex justify-center pt-3 pb-1 shrink-0">
+    <div class="w-10 h-1 bg-slate-200 rounded-full"></div>
+  </div>
+
+  <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
+    <h3 class="font-semibold text-slate-800 text-sm flex items-center gap-2">
+      <i class="fa-solid fa-cart-shopping text-emerald-500"></i>
+      Current Order
+      <span id="cart-badge-drawer"
+            class="bg-emerald-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full
+                   {% if cart_count == 0 %}hidden{% endif %}">
+        {{ cart_count }}
+      </span>
+    </h3>
+    <div class="flex items-center gap-3">
+      <button type="button" id="clear-cart-btn-mobile"
+              class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+        Clear all
+      </button>
+      <button onclick="closeCartDrawer()"
+              class="text-slate-400 hover:text-slate-600 transition-colors">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <div id="cart-items-mobile" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+    {% if cart_items %}
+      {% for item in cart_items %}
+      <div class="cart-row px-4 py-3" data-id="{{ item.id }}">
+        <div class="flex items-start justify-between mb-2">
+          <p class="text-sm font-medium text-slate-800 leading-tight flex-1 mr-2">{{ item.name }}</p>
+          <button type="button"
+                  class="remove-item-btn text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                  data-item-id="{{ item.id }}">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <button type="button"
+                    class="qty-decrement-btn w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200
+                           flex items-center justify-center transition-colors"
+                    data-item-id="{{ item.id }}" data-quantity="{{ item.quantity }}">
+              <i class="fa-solid fa-minus text-xs text-slate-600"></i>
+            </button>
+            <span class="text-sm font-semibold text-slate-800 w-6 text-center qty-display">
+              {{ item.quantity }}
+            </span>
+            <button type="button"
+                    class="qty-increment-btn w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200
+                           flex items-center justify-center transition-colors"
+                    data-item-id="{{ item.id }}" data-quantity="{{ item.quantity }}">
+              <i class="fa-solid fa-plus text-xs text-slate-600"></i>
+            </button>
+          </div>
+          <span class="text-sm font-bold text-emerald-600 subtotal-display">
+            ₦{{ item.subtotal|floatformat:0 }}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div id="empty-cart-mobile"
+           class="flex flex-col items-center justify-center py-16">
+        <i class="fa-solid fa-cart-shopping text-slate-200 text-4xl mb-3"></i>
+        <p class="text-slate-400 text-sm">Cart is empty</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="border-t border-slate-200 p-4 shrink-0"
+       style="padding-bottom: calc(1rem + env(safe-area-inset-bottom));">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-slate-600 font-medium text-sm">Total</span>
+      <span id="cart-total-mobile" class="text-xl font-bold text-slate-800">
+        ₦{{ cart_total|floatformat:0 }}
+      </span>
+    </div>
+    <div id="checkout-error-mobile"
+         class="hidden mb-3 px-3 py-2 bg-red-50 border border-red-200
+                rounded-lg text-red-700 text-xs"></div>
+    <form method="post" action="{% url 'store:checkout' %}" id="checkout-form-mobile">
+      {% csrf_token %}
+      <button type="submit"
+              class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold
+                     py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-check"></i> Checkout
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="flex gap-5 h-[calc(100vh-10rem)]">
+
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <form method="get" class="flex flex-col sm:flex-row gap-2 md:gap-3 mb-4">
+      <div class="relative flex-1">
+        <i class="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <input type="text" name="q" value="{{ query }}"
+               placeholder="Search products..."
+               class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm
+                      bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"/>
+      </div>
+      <div class="flex gap-2">
+        <select name="category" onchange="this.form.submit()"
+                class="flex-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white
+                       focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-700">
+          <option value="">All Categories</option>
+          {% for val, label in categories %}
+            <option value="{{ val }}" {% if selected_category == val %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+        <button type="submit"
+                class="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white
+                       text-sm font-medium rounded-xl transition-colors shrink-0">
+          <span class="hidden sm:inline">Search</span>
+          <i class="fa-solid fa-search sm:hidden"></i>
+        </button>
+      </div>
+    </form>
+
+    <div class="flex-1 overflow-y-auto">
+      {% if products %}
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
+        {% for product in products %}
+        <button type="button"
+                class="product-card bg-white border border-slate-200 rounded-xl p-3 md:p-4 text-left
+                       hover:border-emerald-400 hover:shadow-md transition-all group"
+                data-product-id="{{ product.pk }}"
+                data-product-name="{{ product.name|escapejs }}"
+                data-product-price="{{ product.price }}"
+                data-product-stock="{{ product.quantity }}">
+          <div class="w-full aspect-square max-h-24 md:max-h-28 bg-slate-50 group-hover:bg-slate-100
+                      rounded-lg mb-2 md:mb-3 overflow-hidden flex items-center justify-center
+                      transition-colors">
+            {% if product.image %}
+            <img src="{{ product.image.url }}" alt="{{ product.name }}"
+                 class="w-full h-full object-cover"/>
+            {% else %}
+            <i class="fa-solid fa-box text-emerald-500 text-xl md:text-2xl"></i>
+            {% endif %}
+          </div>
+          <p class="text-slate-800 font-medium text-xs md:text-sm leading-tight mb-1">{{ product.name }}</p>
+          <p class="text-emerald-600 font-bold text-xs md:text-sm">₦{{ product.price|floatformat:0 }}</p>
+          <p class="text-slate-400 text-xs mt-0.5">{{ product.quantity }} in stock</p>
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="flex items-center justify-center h-48">
+        <div class="text-center">
+          <i class="fa-solid fa-box-open text-slate-200 text-4xl mb-3"></i>
+          <p class="text-slate-400 text-sm">No products found.</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <div class="hidden md:flex w-72 lg:w-80 shrink-0 flex-col bg-white rounded-xl
+              border border-slate-200 overflow-hidden">
+
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="font-semibold text-slate-800 text-sm flex items-center gap-2">
+        <i class="fa-solid fa-cart-shopping text-emerald-500"></i>
+        Current Order
+        <span id="cart-badge"
+              class="bg-emerald-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full
+                     {% if cart_count == 0 %}hidden{% endif %}">
+          {{ cart_count }}
+        </span>
+      </h3>
+      <button type="button" id="clear-cart-btn"
+              class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+        Clear all
+      </button>
+    </div>
+
+    <div id="cart-items" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+      {% if cart_items %}
+        {% for item in cart_items %}
+        <div class="cart-row px-4 py-3" data-id="{{ item.id }}">
+          <div class="flex items-start justify-between mb-2">
+            <p class="text-sm font-medium text-slate-800 leading-tight flex-1 mr-2">{{ item.name }}</p>
+            <button type="button"
+                    class="remove-item-btn text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                    data-item-id="{{ item.id }}">
+              <i class="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <button type="button"
+                      class="qty-decrement-btn w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200
+                             flex items-center justify-center transition-colors"
+                      data-item-id="{{ item.id }}" data-quantity="{{ item.quantity }}">
+                <i class="fa-solid fa-minus text-xs text-slate-600"></i>
+              </button>
+              <span class="text-sm font-semibold text-slate-800 w-6 text-center qty-display">
+                {{ item.quantity }}
+              </span>
+              <button type="button"
+                      class="qty-increment-btn w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200
+                             flex items-center justify-center transition-colors"
+                      data-item-id="{{ item.id }}" data-quantity="{{ item.quantity }}">
+                <i class="fa-solid fa-plus text-xs text-slate-600"></i>
+              </button>
+            </div>
+            <span class="text-sm font-bold text-emerald-600 subtotal-display">
+              ₦{{ item.subtotal|floatformat:0 }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div id="empty-cart"
+             class="flex flex-col items-center justify-center h-full py-12">
+          <i class="fa-solid fa-cart-shopping text-slate-200 text-4xl mb-3"></i>
+          <p class="text-slate-400 text-sm">Cart is empty</p>
+          <p class="text-slate-300 text-xs mt-1">Click a product to add it</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="border-t border-slate-200 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-slate-600 font-medium text-sm">Total</span>
+        <span id="cart-total" class="text-xl font-bold text-slate-800">
+          ₦{{ cart_total|floatformat:0 }}
+        </span>
+      </div>
+      <div id="checkout-error"
+           class="hidden mb-3 px-3 py-2 bg-red-50 border border-red-200
+                  rounded-lg text-red-700 text-xs"></div>
+      <form method="post" action="{% url 'store:checkout' %}" id="checkout-form">
+        {% csrf_token %}
+        <button type="submit" id="checkout-btn"
+                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold
+                       py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-check"></i>
+          Checkout
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"
+     class="hidden fixed bottom-24 md:bottom-6 right-4 md:right-6 bg-slate-800 text-white text-sm
+            font-medium px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2">
+  <i class="fa-solid fa-circle-check text-emerald-400"></i>
+  <span id="toast-msg"></span>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const URLS = {
+    cartAdd:    "{% url 'store:cart_add' %}",
+    cartUpdate: "{% url 'store:cart_update' %}",
+    cartRemove: "{% url 'store:cart_remove' %}",
+    cartClear:  "{% url 'store:cart_clear' %}",
+  };
+
+  const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  /* ── Cart drawer (mobile) ─────────────────────────────────────────────── */
+  function openCartDrawer() {
+    document.getElementById('cart-drawer').style.transform = 'translateY(0)';
+    document.getElementById('cart-drawer-overlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeCartDrawer() {
+    document.getElementById('cart-drawer').style.transform = 'translateY(100%)';
+    document.getElementById('cart-drawer-overlay').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('cart-toggle-btn').addEventListener('click', openCartDrawer);
+
+  /* ── Toast ────────────────────────────────────────────────────────────── */
+  function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    const icon  = toast.querySelector('i');
+    document.getElementById('toast-msg').textContent = msg;
+    icon.className = isError
+      ? 'fa-solid fa-circle-exclamation text-red-400'
+      : 'fa-solid fa-circle-check text-emerald-400';
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  async function apiCall(url, body) {
+    const res = await fetch(url, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body:    JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  function buildCartRow(item) {
+    return `
+      <div class="cart-row px-4 py-3" data-id="${item.id}">
+        <div class="flex items-start justify-between mb-2">
+          <p class="text-sm font-medium text-slate-800 leading-tight flex-1 mr-2">${item.name}</p>
+          <button type="button"
+                  class="remove-item-btn text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                  data-item-id="${item.id}">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <button type="button"
+                    class="qty-decrement-btn w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200
+                           flex items-center justify-center transition-colors"
+                    data-item-id="${item.id}" data-quantity="${item.quantity}">
+              <i class="fa-solid fa-minus text-xs text-slate-600"></i>
+            </button>
+            <span class="text-sm font-semibold text-slate-800 w-6 text-center qty-display">
+              ${item.quantity}
+            </span>
+            <button type="button"
+                    class="qty-increment-btn w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200
+                           flex items-center justify-center transition-colors"
+                    data-item-id="${item.id}" data-quantity="${item.quantity}">
+              <i class="fa-solid fa-plus text-xs text-slate-600"></i>
+            </button>
+          </div>
+          <span class="text-sm font-bold text-emerald-600">
+            ₦${Number(item.subtotal).toLocaleString('en-NG', { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+      </div>`;
+  }
+
+  /* Sync both the sidebar cart panel (md+) and mobile drawer */
+  function refreshCart(data) {
+    const count = data.cart_count || 0;
+    const total = Number(data.cart_total || 0);
+    const totalStr = '₦' + total.toLocaleString('en-NG', { maximumFractionDigits: 0 });
+    const items = data.cart_items || [];
+
+    /* Desktop badge */
+    const badge = document.getElementById('cart-badge');
+    if (badge) {
+      if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    }
+
+    /* Mobile FAB badge */
+    const fabBadge = document.getElementById('cart-badge-fab');
+    if (fabBadge) {
+      if (count > 0) { fabBadge.textContent = count; fabBadge.classList.remove('hidden'); }
+      else fabBadge.classList.add('hidden');
+    }
+
+    /* Drawer badge */
+    const drawerBadge = document.getElementById('cart-badge-drawer');
+    if (drawerBadge) {
+      if (count > 0) { drawerBadge.textContent = count; drawerBadge.classList.remove('hidden'); }
+      else drawerBadge.classList.add('hidden');
+    }
+
+    /* Totals */
+    const desktopTotal = document.getElementById('cart-total');
+    if (desktopTotal) desktopTotal.textContent = totalStr;
+    const mobileTotal = document.getElementById('cart-total-mobile');
+    if (mobileTotal) mobileTotal.textContent = totalStr;
+
+    const emptyState = `
+      <div class="flex flex-col items-center justify-center h-full py-12">
+        <i class="fa-solid fa-cart-shopping text-slate-200 text-4xl mb-3"></i>
+        <p class="text-slate-400 text-sm">Cart is empty</p>
+        <p class="text-slate-300 text-xs mt-1">Click a product to add it</p>
+      </div>`;
+
+    /* Desktop cart items */
+    const desktopContainer = document.getElementById('cart-items');
+    if (desktopContainer) {
+      desktopContainer.innerHTML = items.length
+        ? items.map(buildCartRow).join('')
+        : emptyState;
+    }
+
+    /* Mobile cart items */
+    const mobileContainer = document.getElementById('cart-items-mobile');
+    if (mobileContainer) {
+      mobileContainer.innerHTML = items.length
+        ? items.map(buildCartRow).join('')
+        : emptyState.replace('Click a product to add it', '');
+    }
+  }
+
+  async function addToCart(productId, productName, stock) {
+    if (stock === 0) { showToast('Out of stock', true); return; }
+    const data = await apiCall(URLS.cartAdd, { product_id: productId });
+    if (data.error) { showToast(data.error, true); return; }
+    refreshCart(data);
+    showToast(`${productName} added to cart`);
+  }
+
+  async function changeQty(productId, quantity) {
+    const data = await apiCall(URLS.cartUpdate, { product_id: productId, quantity });
+    if (data.error) { showToast(data.error, true); return; }
+    refreshCart(data);
+  }
+
+  async function removeItem(productId) {
+    const data = await apiCall(URLS.cartRemove, { product_id: productId });
+    if (data.error) { showToast(data.error, true); return; }
+    refreshCart(data);
+  }
+
+  async function clearCart() {
+    const data = await apiCall(URLS.cartClear, {});
+    if (data.success) refreshCart({ cart_count: 0, cart_total: 0, cart_items: [] });
+  }
+
+  /* ── Event delegation (covers both desktop panel and mobile drawer) ───── */
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.product-card');
+    if (card) {
+      const { productId, productName, productStock } = card.dataset;
+      addToCart(productId, productName, parseInt(productStock, 10));
+      return;
+    }
+
+    const removeBtn = e.target.closest('.remove-item-btn');
+    if (removeBtn) { removeItem(removeBtn.dataset.itemId); return; }
+
+    const decBtn = e.target.closest('.qty-decrement-btn');
+    if (decBtn) { changeQty(decBtn.dataset.itemId, parseInt(decBtn.dataset.quantity, 10) - 1); return; }
+
+    const incBtn = e.target.closest('.qty-increment-btn');
+    if (incBtn) { changeQty(incBtn.dataset.itemId, parseInt(incBtn.dataset.quantity, 10) + 1); return; }
+  });
+
+  /* Wire up both clear-cart buttons */
+  document.getElementById('clear-cart-btn')?.addEventListener('click', clearCart);
+  document.getElementById('clear-cart-btn-mobile')?.addEventListener('click', clearCart);
+</script>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% block title %}Inventory — FudCo{% endblock %}
+{% block nav_inventory %}active{% endblock %}
+{% block nav_inventory_icon %}active{% endblock %}
+{% block nav_inventory_bottom %}active{% endblock %}
+{% block page_title %}Inventory{% endblock %}
+
+{% block content %}
+
+<!-- Header row -->
+<div class="flex items-center justify-between mb-4 md:mb-6">
+  <p class="text-slate-500 text-sm">
+    {{ products.count }} product{{ products.count|pluralize }} found
+  </p>
+  {% if request.user.profile.is_manager %}
+  <a href="{% url 'store:product_add' %}"
+     class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium
+            px-3 md:px-4 py-2 md:py-2.5 rounded-xl flex items-center gap-2 transition-colors">
+    <i class="fa-solid fa-plus"></i>
+    <span class="hidden sm:inline">Add Product</span>
+    <span class="sm:hidden">Add</span>
+  </a>
+  {% endif %}
+</div>
+
+<!-- Search & filter bar -->
+<div class="bg-white rounded-xl border border-slate-200 p-3 md:p-4 mb-4 md:mb-5">
+  <form method="get">
+    <!-- Mobile: stacked layout; tablet+: row layout -->
+    <div class="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-3">
+      <div class="relative flex-1 min-w-0">
+        <i class="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <input type="text" name="q" value="{{ query }}"
+               placeholder="Search products..."
+               class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm
+                      focus:outline-none focus:ring-2 focus:ring-emerald-500"/>
+      </div>
+
+      <div class="flex gap-2">
+        <select name="category"
+                class="flex-1 min-w-0 px-3 py-2.5 border border-slate-200 rounded-lg text-sm
+                       text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+          <option value="">All Categories</option>
+          {% for val, label in categories %}
+            <option value="{{ val }}" {% if selected_category == val %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <select name="status"
+                class="flex-1 min-w-0 px-3 py-2.5 border border-slate-200 rounded-lg text-sm
+                       text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+          <option value="">All Statuses</option>
+          <option value="in_stock"     {% if selected_status == 'in_stock' %}selected{% endif %}>In Stock</option>
+          <option value="low_stock"    {% if selected_status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+          <option value="out_of_stock" {% if selected_status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+        </select>
+      </div>
+
+      <div class="flex gap-2">
+        <button type="submit"
+                class="flex-1 sm:flex-none px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white
+                       text-sm font-medium rounded-lg transition-colors">
+          Filter
+        </button>
+        {% if query or selected_category or selected_status %}
+        <a href="{% url 'store:inventory' %}"
+           class="flex-1 sm:flex-none px-4 py-2.5 border border-slate-200 text-slate-600
+                  hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors text-center">
+          Clear
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Products table — horizontal scroll on mobile -->
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  {% if products %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[640px]">
+      <thead>
+        <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide border-b border-slate-200">
+          <th class="px-4 md:px-5 py-3.5 text-left font-medium">Product</th>
+          <th class="px-4 md:px-5 py-3.5 text-left font-medium">Category</th>
+          <th class="px-4 md:px-5 py-3.5 text-left font-medium">Price</th>
+          <th class="px-4 md:px-5 py-3.5 text-left font-medium">Stock</th>
+          <th class="px-4 md:px-5 py-3.5 text-left font-medium">Threshold</th>
+          <th class="px-4 md:px-5 py-3.5 text-left font-medium">Status</th>
+          {% if request.user.profile.is_manager %}
+          <th class="px-4 md:px-5 py-3.5 text-left font-medium">Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for product in products %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-4 md:px-5 py-3.5 font-medium text-slate-800">{{ product.name }}</td>
+          <td class="px-4 md:px-5 py-3.5 text-slate-500 capitalize">{{ product.get_category_display }}</td>
+          <td class="px-4 md:px-5 py-3.5 font-semibold text-slate-700">₦{{ product.price|floatformat:0 }}</td>
+          <td class="px-4 md:px-5 py-3.5 font-bold
+            {% if product.quantity == 0 %}text-red-600
+            {% elif product.is_low_stock %}text-amber-600
+            {% else %}text-slate-800{% endif %}">
+            {{ product.quantity }}
+          </td>
+          <td class="px-4 md:px-5 py-3.5 text-slate-500">{{ product.restock_threshold }}</td>
+          <td class="px-4 md:px-5 py-3.5">
+            {% if product.quantity == 0 %}
+              <span class="bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                Out of Stock
+              </span>
+            {% elif product.is_low_stock %}
+              <span class="bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                Low Stock
+              </span>
+            {% else %}
+              <span class="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                In Stock
+              </span>
+            {% endif %}
+          </td>
+          {% if request.user.profile.is_manager %}
+          <td class="px-4 md:px-5 py-3.5">
+            <div class="flex items-center gap-1.5 md:gap-2">
+              <a href="{% url 'store:product_edit' product.pk %}"
+                 class="text-xs font-medium text-blue-600 hover:text-blue-800
+                        bg-blue-50 hover:bg-blue-100 px-2 md:px-3 py-1.5 rounded-lg transition-colors">
+                <i class="fa-solid fa-pen-to-square md:mr-1"></i>
+                <span class="hidden md:inline">Edit</span>
+              </a>
+              <button onclick="confirmDelete('{{ product.pk }}', '{{ product.name|escapejs }}')"
+                      class="text-xs font-medium text-red-500 hover:text-red-700
+                             bg-red-50 hover:bg-red-100 px-2 md:px-3 py-1.5 rounded-lg transition-colors">
+                <i class="fa-solid fa-trash md:mr-1"></i>
+                <span class="hidden md:inline">Delete</span>
+              </button>
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <div class="py-16 text-center">
+    <i class="fa-solid fa-boxes-stacked text-slate-200 text-5xl mb-4"></i>
+    <p class="text-slate-400 text-sm">No products found matching your filters.</p>
+    <a href="{% url 'store:inventory' %}" class="text-emerald-600 text-sm hover:underline mt-1 inline-block">
+      Clear filters
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Delete confirmation modal -->
+<div id="delete-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-end sm:items-center
+            justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i class="fa-solid fa-trash text-red-500 text-lg"></i>
+    </div>
+    <h3 class="text-slate-800 font-semibold text-center mb-1">Delete Product?</h3>
+    <p class="text-slate-500 text-sm text-center mb-6">
+      "<span id="delete-product-name"></span>" will be permanently removed.
+    </p>
+    <div class="flex gap-3">
+      <button onclick="closeDeleteModal()"
+              class="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm
+                     text-slate-600 hover:bg-slate-50 transition-colors font-medium">
+        Cancel
+      </button>
+      <form id="delete-form" method="post" class="flex-1">
+        {% csrf_token %}
+        <button type="submit"
+                class="w-full px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white
+                       rounded-xl text-sm font-medium transition-colors">
+          Delete
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function confirmDelete(pk, name) {
+    document.getElementById('delete-product-name').textContent = name;
+    document.getElementById('delete-form').action = `/inventory/${pk}/delete/`;
+    document.getElementById('delete-modal').classList.remove('hidden');
+  }
+  function closeDeleteModal() {
+    document.getElementById('delete-modal').classList.add('hidden');
+  }
+  document.getElementById('delete-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+  });
+</script>
+{% endblock %}
