@@ -32,7 +32,9 @@ ALLOWED_HOSTS = [
 
 
 INSTALLED_APPS = [
-    'cloudinary_storage',          # MUST be above staticfiles
+    # Explicitly isolates Cloudinary to Media handling only, bypassing static files collisions
+    'cloudinary_storage.apps.MediaCloudinaryStorageConfig',
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,6 +44,7 @@ INSTALLED_APPS = [
     'cloudinary',
     'store',  # our app
 ]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -91,6 +94,7 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
 # Auth settings
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -102,31 +106,30 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 # Internationalisation
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Africa/Lagos'  # Nigerian timezone — change if needed
+TIME_ZONE = 'Africa/Lagos'  # Nigerian timezone
 USE_I18N = True
 USE_TZ = True
 
 # Static and Media Routing Configurations
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # used by collectstatic on deployment
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Unified Modern Storage Routing (Django 4.2 -> 6.0+)
 # Unified Modern Storage Routing (Django 4.2 -> 6.0+)
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        # Changed from CompressedManifestStaticFilesStorage to stop strict asset verification crashes
+        # Lenient engine variant prevents deep manifest validation failures during compilation
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
-# Legacy Fallback String Variable (Satisfies third-party package checks)
+# Legacy Fallback String Variable (Satisfies third-party internal checking architectures)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 CLOUDINARY_STORAGE = {
@@ -135,11 +138,4 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
-
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'
-LOGOUT_REDIRECT_URL = '/login/'

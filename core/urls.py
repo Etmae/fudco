@@ -8,5 +8,6 @@ urlpatterns = [
     path('', include('store.urls')),  # all our routes live in store/urls.py
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# This ensures that both locally (DEBUG=True) and on Render (DEBUG=False), 
+# Django will route media requests correctly.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
