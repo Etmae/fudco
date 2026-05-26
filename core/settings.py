@@ -1,6 +1,6 @@
 from pathlib import Path
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 import dj_database_url
 
 
@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-change-this-in-production-use-env-var')
 
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 't')
 
 #  HTTPS & Cookie Security (Enforced when SSL/TLS is live)
 if not DEBUG:
