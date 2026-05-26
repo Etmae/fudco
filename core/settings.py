@@ -32,9 +32,8 @@ ALLOWED_HOSTS = [
 
 
 INSTALLED_APPS = [
-    # Explicitly isolates Cloudinary to Media handling only, bypassing static files collisions
-    'cloudinary_storage.apps.MediaCloudinaryStorageConfig',
-    
+    # Standard inclusion placed directly above core apps
+    'cloudinary_storage',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
