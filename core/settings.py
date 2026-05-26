@@ -32,17 +32,16 @@ ALLOWED_HOSTS = [
 
 
 INSTALLED_APPS = [
+    'cloudinary_storage',          # MUST be above staticfiles
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'cloudinary_storage',          # Add this right after staticfiles
     'cloudinary',
     'store',  # our app
 ]
-
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -107,24 +106,29 @@ TIME_ZONE = 'Africa/Lagos'  # Nigerian timezone — change if needed
 USE_I18N = True
 USE_TZ = True
 
-# Static files
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Static and Media Routing Configurations
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'  # used by collectstatic on deployment
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Media URLs
 MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
-# Tell Django to use Cloudinary for live media uploads
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+# Unified Modern Storage Routing (Django 4.2 -> 6.0+)
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
