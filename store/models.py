@@ -14,6 +14,8 @@ ROLE_CHOICES = [
 
 CATEGORY_CHOICES = [
     ('groceries',   'Groceries'),
+    ('technology',  'Technology'),
+    ('clothing',    'Clothing'),
     ('beverages',   'Beverages'),
     ('dairy',       'Dairy'),
     ('bakery',      'Bakery'),

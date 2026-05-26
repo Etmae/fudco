@@ -1,10 +1,16 @@
 from django.urls import path
 from store import views
+from django.http import HttpResponse
 
 app_name = 'store'
 
+# An ultra-lightweight ping function that executes in fractions of a millisecond
+def live_ping(request):
+    return HttpResponse("warm", content_type="text/plain")
+
 urlpatterns = [
     path('',                            views.home,           name='home'),
+    path('live-ping/',                  live_ping,            name='live_ping'),
     path('login/',                      views.login_view,     name='login'),
     path('logout/',                     views.logout_view,    name='logout'),
     path('dashboard/',                  views.dashboard,      name='dashboard'),
@@ -29,3 +35,4 @@ urlpatterns = [
     path('restock-alerts/',             views.restock_alerts, name='restock_alerts'),
     path('cashiers/',                   views.cashiers,       name='cashiers'),
 ]
+
