@@ -124,13 +124,13 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        # Lenient engine variant prevents deep manifest validation failures during compilation
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        # Standard storage completely disables the compression loops causing the build crashes
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
 
-# Legacy Fallback String Variable (Satisfies third-party internal checking architectures)
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+# Legacy Fallback String Variable 
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
