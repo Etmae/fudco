@@ -32,8 +32,9 @@ ALLOWED_HOSTS = [
 
 
 INSTALLED_APPS = [
-    # Standard inclusion placed directly above core apps
-    'cloudinary_storage',
+    # Explicitly load the storage engine ONLY for media fields, bypassing static files overrides completely
+    'cloudinary_storage.apps.CloudinaryStorageConfig',
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
