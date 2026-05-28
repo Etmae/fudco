@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Sales Reports — FudCo{% endblock %}
 {% block nav_reports %}active{% endblock %}
 {% block nav_reports_icon %}active{% endblock %}
@@ -154,5 +155,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/reports.js"></script>
+<script src="{% static 'js/reports.js' %}?v=20260528-chart2"></script>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Dashboard — FudCo{% endblock %}
 {% block nav_home %}active{% endblock %}
 {% block nav_home_icon %}active{% endblock %}
@@ -179,5 +180,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/dashboard.js"></script>
+<script src="{% static 'js/dashboard.js' %}?v=20260528-chart2"></script>
 {% endblock %}

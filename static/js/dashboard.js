@@ -2,21 +2,37 @@ document.addEventListener('DOMContentLoaded', function () {
   const canvas = document.getElementById('dashRevenueChart');
   if (!canvas) return;
 
+  function showChartNotice(message) {
+    const note = document.createElement('p');
+    note.className = 'text-xs text-slate-400 mt-2 text-center italic';
+    note.textContent = message;
+    canvas.parentNode.appendChild(note);
+  }
+
   let labels, values;
   try {
     labels = JSON.parse(canvas.dataset.labels);
     values = JSON.parse(canvas.dataset.values);
   } catch (e) {
     console.error('Chart data parse error:', e);
+    showChartNotice('Revenue chart data could not be loaded.');
     return;
   }
 
-  if (!window.Chart || !Array.isArray(labels) || !Array.isArray(values)) return;
+  if (!window.Chart) {
+    showChartNotice('Revenue chart library could not be loaded.');
+    return;
+  }
+  if (!Array.isArray(labels) || !Array.isArray(values)) {
+    showChartNotice('Revenue chart data is not in the expected format.');
+    return;
+  }
+
   labels = labels.slice(0, values.length);
   values = values.map(v => Number(v) || 0);
 
-  const maxVal    = Math.max(...values);
-  const hasData   = values.some(v => v > 0);
+  const maxVal = Math.max(...values);
+  const hasData = values.some(v => v > 0);
   const suggestedMax = hasData ? maxVal * 1.3 : 50000;
 
   const barColors = values.map((_, i) =>
@@ -34,11 +50,11 @@ document.addEventListener('DOMContentLoaded', function () {
       chart.getDatasetMeta(0).data.forEach((bar, i) => {
         const val = data.datasets[0].data[i];
         if (val <= 0) return;
-        ctx.fillStyle    = '#475569';
-        ctx.font         = '10px sans-serif';
-        ctx.textAlign    = 'center';
+        ctx.fillStyle = '#475569';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        const lbl = val >= 1000 ? '₦' + (val/1000).toFixed(0) + 'k' : '₦' + val;
+        const lbl = val >= 1000 ? 'NGN ' + (val / 1000).toFixed(0) + 'k' : 'NGN ' + val;
         ctx.fillText(lbl, bar.x, bar.y - 3);
       });
       ctx.restore();
@@ -66,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => '₦' + Number(ctx.raw).toLocaleString('en-NG')
+            label: ctx => 'NGN ' + Number(ctx.raw).toLocaleString('en-NG')
           }
         }
       },
@@ -76,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function () {
           suggestedMax,
           grid: { color: 'rgba(0,0,0,0.04)' },
           ticks: {
-            callback: v => v >= 1000 ? '₦' + (v/1000).toFixed(0) + 'k' : '₦' + v,
+            callback: v => v >= 1000 ? 'NGN ' + (v / 1000).toFixed(0) + 'k' : 'NGN ' + v,
             font: { size: 11 },
             maxTicksLimit: 5,
           }
@@ -89,13 +105,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Explanatory note for sparse data
   if (!hasData || (values.length === 1 && values[0] > 0)) {
-    const note = document.createElement('p');
-    note.className = 'text-xs text-slate-400 mt-2 text-center italic';
-    note.textContent = hasData
+    showChartNotice(hasData
       ? 'History builds as more days are recorded'
-      : 'No sales yet — process a transaction to see revenue here.';
-    canvas.parentNode.appendChild(note);
+      : 'No sales yet - process a transaction to see revenue here.');
   }
 });
