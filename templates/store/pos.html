@@ -113,8 +113,7 @@
     <div id="checkout-error-mobile"
          class="hidden mb-3 px-3 py-2 bg-red-50 border border-red-200
                 rounded-lg text-red-700 text-xs"></div>
-    <form method="post" action="{% url 'store:checkout' %}" id="checkout-form-mobile">
-      {% csrf_token %}
+    <form method="get" action="{% url 'store:checkout' %}" id="checkout-form-mobile">
       <button type="submit"
               class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold
                      py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
@@ -270,8 +269,7 @@
       <div id="checkout-error"
            class="hidden mb-3 px-3 py-2 bg-red-50 border border-red-200
                   rounded-lg text-red-700 text-xs"></div>
-      <form method="post" action="{% url 'store:checkout' %}" id="checkout-form">
-        {% csrf_token %}
+      <form method="get" action="{% url 'store:checkout' %}" id="checkout-form">
         <button type="submit" id="checkout-btn"
                 class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold
                        py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">

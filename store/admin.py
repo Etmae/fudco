@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from store.models import UserProfile, Product, Sale, SaleItem
+from store.models import UserProfile, Product, Cart, CartItem, Sale, SaleItem
 
 
 # ── Inline UserProfile inside User admin ──────────────────────────────────────
@@ -35,6 +35,19 @@ class ProductAdmin(admin.ModelAdmin):
 
 # ── Sale ──────────────────────────────────────────────────────────────────────
 
+class CartItemInline(admin.TabularInline):
+    model = CartItem
+    extra = 0
+    readonly_fields = ('subtotal',)
+
+
+@admin.register(Cart)
+class CartAdmin(admin.ModelAdmin):
+    list_display = ('id', 'cashier', 'status', 'created_at', 'updated_at')
+    list_filter = ('status', 'cashier')
+    inlines = (CartItemInline,)
+
+
 class SaleItemInline(admin.TabularInline):
     model = SaleItem
     extra = 0
@@ -43,7 +56,7 @@ class SaleItemInline(admin.TabularInline):
 
 @admin.register(Sale)
 class SaleAdmin(admin.ModelAdmin):
-    list_display  = ('receipt_number', 'cashier', 'total_amount', 'created_at')
-    list_filter   = ('cashier',)
+    list_display  = ('receipt_number', 'cashier', 'total_amount', 'payment_method', 'payment_status', 'created_at')
+    list_filter   = ('cashier', 'payment_method', 'payment_status')
     inlines       = (SaleItemInline,)
     readonly_fields = ('receipt_number',)

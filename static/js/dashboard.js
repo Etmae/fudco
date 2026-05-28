@@ -11,6 +11,10 @@ document.addEventListener('DOMContentLoaded', function () {
     return;
   }
 
+  if (!window.Chart || !Array.isArray(labels) || !Array.isArray(values)) return;
+  labels = labels.slice(0, values.length);
+  values = values.map(v => Number(v) || 0);
+
   const maxVal    = Math.max(...values);
   const hasData   = values.some(v => v > 0);
   const suggestedMax = hasData ? maxVal * 1.3 : 50000;
@@ -86,10 +90,10 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // Explanatory note for sparse data
-  if (values.slice(0, 6).every(v => v === 0)) {
+  if (!hasData || (values.length === 1 && values[0] > 0)) {
     const note = document.createElement('p');
     note.className = 'text-xs text-slate-400 mt-2 text-center italic';
-    note.textContent = values[6] > 0
+    note.textContent = hasData
       ? 'History builds as more days are recorded'
       : 'No sales yet — process a transaction to see revenue here.';
     canvas.parentNode.appendChild(note);

@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Confirm Payment - FudCo{% endblock %}
+{% block nav_pos %}active{% endblock %}
+{% block nav_pos_icon %}active{% endblock %}
+{% block nav_pos_bottom %}active{% endblock %}
+{% block page_title %}Payment Confirmation{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="font-semibold text-slate-800 text-sm">Checkout Items</h3>
+      <span class="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg">
+        Payment Pending
+      </span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[520px]">
+        <thead>
+          <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wide border-b border-slate-100">
+            <th class="px-5 py-3 text-left font-medium">Item</th>
+            <th class="px-5 py-3 text-center font-medium">Qty</th>
+            <th class="px-5 py-3 text-right font-medium">Unit Price</th>
+            <th class="px-5 py-3 text-right font-medium">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for item in cart_items %}
+          <tr>
+            <td class="px-5 py-3 font-medium text-slate-800">{{ item.name }}</td>
+            <td class="px-5 py-3 text-center text-slate-600">x{{ item.quantity }}</td>
+            <td class="px-5 py-3 text-right text-slate-500">₦{{ item.price|floatformat:0 }}</td>
+            <td class="px-5 py-3 text-right font-semibold text-slate-800">₦{{ item.subtotal|floatformat:0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border border-slate-200 p-5 h-fit">
+    <div class="mb-5">
+      <p class="text-slate-400 text-xs uppercase tracking-wide mb-1">Cart Total</p>
+      <p id="cart-total-value" data-total="{{ cart_total }}" class="text-3xl font-bold text-emerald-600">
+        ₦{{ cart_total|floatformat:0 }}
+      </p>
+    </div>
+
+    <form method="post" action="{% url 'store:checkout' %}" class="space-y-4">
+      {% csrf_token %}
+
+      <div>
+        <label for="payment-method" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+          Payment Method
+        </label>
+        <select id="payment-method" name="payment_method"
+                class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white
+                       focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          {% for value, label in payment_methods %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="amount-received" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+          Amount Received
+        </label>
+        <input id="amount-received" name="amount_received" type="number" min="0" step="0.01"
+               value="{{ cart_total }}"
+               class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-emerald-500"/>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-100 rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-slate-500">Change Due</span>
+          <span id="change-due" class="text-lg font-bold text-slate-800">₦0</span>
+        </div>
+      </div>
+
+      <button type="submit" name="action" value="confirm"
+              class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold
+                     py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-circle-check"></i>
+        Confirm Payment
+      </button>
+
+      <button type="submit" name="action" value="cancel"
+              class="w-full bg-white hover:bg-rose-50 text-rose-600 border border-rose-100
+                     font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-ban"></i>
+        Cancel Checkout
+      </button>
+    </form>
+
+    <a href="{% url 'store:pos' %}" class="mt-4 text-center block text-sm text-slate-500 hover:text-emerald-600">
+      Return to cart
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const total = Number(document.getElementById('cart-total-value').dataset.total || 0);
+  const amountInput = document.getElementById('amount-received');
+  const changeDue = document.getElementById('change-due');
+
+  function updateChangeDue() {
+    const received = Number(amountInput.value || 0);
+    const change = Math.max(received - total, 0);
+    changeDue.textContent = '₦' + change.toLocaleString('en-NG', { maximumFractionDigits: 0 });
+  }
+
+  amountInput.addEventListener('input', updateChangeDue);
+  updateChangeDue();
+</script>
+{% endblock %}

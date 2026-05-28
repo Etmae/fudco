@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', function () {
     values = JSON.parse(canvas.dataset.values);
   } catch (e) { return; }
 
+  if (!window.Chart || !Array.isArray(labels) || !Array.isArray(values)) return;
+  labels = labels.slice(0, values.length);
+  values = values.map(v => Number(v) || 0);
+
   const maxVal       = Math.max(...values);
   const suggestedMax = maxVal > 0 ? maxVal * 1.3 : 50000;
 

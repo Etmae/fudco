@@ -4,13 +4,38 @@ from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Sum, F, Q, Count
 from store.decorators import login_required_custom, manager_required
-from store.models import Product, Sale, SaleItem ,CATEGORY_CHOICES
+from store.models import Product, Sale, SaleItem, Cart, CartItem, CATEGORY_CHOICES, PAYMENT_METHOD_CHOICES
 import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction as db_transaction
 from datetime import timedelta
 from django.contrib.auth.models import User
+from decimal import Decimal, InvalidOperation
+
+def get_recent_revenue_chart_data(today):
+    start_window = today - timedelta(days=6)
+    first_sale = (
+        Sale.objects
+        .filter(created_at__date__gte=start_window, created_at__date__lte=today)
+        .order_by('created_at')
+        .values_list('created_at', flat=True)
+        .first()
+    )
+    start_day = timezone.localtime(first_sale).date() if first_sale else start_window
+
+    chart_labels = []
+    chart_data = []
+    current_day = start_day
+    while current_day <= today:
+        rev = Sale.objects.filter(
+            created_at__date=current_day
+        ).aggregate(t=Sum('total_amount'))['t'] or 0
+        chart_labels.append(current_day.strftime('%d %b'))
+        chart_data.append(float(rev))
+        current_day += timedelta(days=1)
+
+    return chart_labels, chart_data
 
 
 def login_view(request):
@@ -51,16 +76,7 @@ def dashboard(request):
                              Q(quantity__lte=F('restock_threshold'))
                          ).order_by('quantity')[:10]
 
-    # 7-day chart data
-    chart_labels = []
-    chart_data   = []
-    for i in range(6, -1, -1):
-        day = today - timedelta(days=i)
-        rev = Sale.objects.filter(
-            created_at__date=day
-        ).aggregate(t=Sum('total_amount'))['t'] or 0
-        chart_labels.append(day.strftime('%d %b'))
-        chart_data.append(float(rev))
+    chart_labels, chart_data = get_recent_revenue_chart_data(today)
 
     context = {
         'total_products':     total_products,
@@ -236,12 +252,37 @@ def product_delete(request, pk):
 
 # ── Cart helpers ──────────────────────────────────────────────────────────────
 
-def get_cart(request):
-    return request.session.get('cart', {})
+def get_active_cart(request):
+    cart_id = request.session.get('active_cart_id')
+    cart = None
 
-def save_cart(request, cart):
-    request.session['cart'] = cart
+    if cart_id:
+        cart = (
+            Cart.objects
+            .filter(pk=cart_id, cashier=request.user, status__in=['open', 'checkout_pending'])
+            .first()
+        )
+
+    if cart is None:
+        cart = (
+            Cart.objects
+            .filter(cashier=request.user, status='open')
+            .order_by('-updated_at')
+            .first()
+        )
+
+    if cart is None:
+        cart = Cart.objects.create(cashier=request.user)
+
+    request.session['active_cart_id'] = cart.pk
     request.session.modified = True
+    return cart
+
+
+def release_active_cart(request, cart=None):
+    if cart and request.session.get('active_cart_id') == cart.pk:
+        request.session.pop('active_cart_id', None)
+        request.session.modified = True
 
 
 # ── POS page ──────────────────────────────────────────────────────────────────
@@ -257,7 +298,7 @@ def pos(request):
     if category:
         products = products.filter(category=category)
 
-    cart     = get_cart(request)
+    cart     = get_active_cart(request)
     cart_items, cart_total = _build_cart_display(cart)
 
     context = {
@@ -267,7 +308,7 @@ def pos(request):
         'selected_category': category,
         'cart_items':        cart_items,
         'cart_total':        cart_total,
-        'cart_count':        sum(v['quantity'] for v in cart.values()),
+        'cart_count':        sum(item['quantity'] for item in cart_items),
         'low_stock_count':   Product.objects.filter(
                                  Q(quantity__lte=F('restock_threshold'))
                              ).count(),
@@ -276,17 +317,20 @@ def pos(request):
 
 
 def _build_cart_display(cart):
-    """Converts the session cart dict into a list for template rendering."""
+    """Converts the active cart into a list for template rendering and AJAX."""
     items = []
-    total = 0
-    for pid, item in cart.items():
-        subtotal = item['price'] * item['quantity']
-        total   += subtotal
+    total = Decimal('0')
+    cart_items = cart.items.select_related('product').order_by('id')
+    for item in cart_items:
+        if not item.product:
+            continue
+        subtotal = item.subtotal
+        total += subtotal
         items.append({
-            'id':       pid,
-            'name':     item['name'],
-            'price':    item['price'],
-            'quantity': item['quantity'],
+            'id':       item.product_id,
+            'name':     item.product.name,
+            'price':    item.unit_price,
+            'quantity': item.quantity,
             'subtotal': subtotal,
         })
     return items, total
@@ -305,27 +349,35 @@ def cart_add(request):
         if product.quantity == 0:
             return JsonResponse({'error': 'This product is out of stock.'}, status=400)
 
-        cart = get_cart(request)
+        cart = get_active_cart(request)
+        if cart.status != 'open':
+            cart.status = 'open'
+            cart.save(update_fields=['status', 'updated_at'])
 
-        if product_id in cart:
-            new_qty = cart[product_id]['quantity'] + 1
+        cart_item = CartItem.objects.filter(cart=cart, product=product).first()
+
+        if cart_item:
+            new_qty = cart_item.quantity + 1
             if new_qty > product.quantity:
                 return JsonResponse(
                     {'error': f'Only {product.quantity} unit(s) available.'}, status=400
                 )
-            cart[product_id]['quantity'] = new_qty
+            cart_item.quantity = new_qty
+            cart_item.unit_price = product.price
+            cart_item.save()
         else:
-            cart[product_id] = {
-                'name':     product.name,
-                'price':    float(product.price),
-                'quantity': 1,
-            }
+            CartItem.objects.create(
+                cart=cart,
+                product=product,
+                quantity=1,
+                unit_price=product.price,
+                subtotal=product.price,
+            )
 
-        save_cart(request, cart)
         cart_items, cart_total = _build_cart_display(cart)
         return JsonResponse({
             'success':    True,
-            'cart_count': sum(v['quantity'] for v in cart.values()),
+            'cart_count': sum(item['quantity'] for item in cart_items),
             'cart_total': cart_total,
             'cart_items': cart_items,
         })
@@ -340,24 +392,38 @@ def cart_update(request):
         data       = json.loads(request.body)
         product_id = str(data.get('product_id'))
         quantity   = int(data.get('quantity', 0))
-        cart       = get_cart(request)
+        cart       = get_active_cart(request)
+        if cart.status != 'open':
+            cart.status = 'open'
+            cart.save(update_fields=['status', 'updated_at'])
+        product = get_object_or_404(Product, pk=product_id)
+        cart_item = CartItem.objects.filter(cart=cart, product=product).first()
 
         if quantity <= 0:
-            cart.pop(product_id, None)
+            if cart_item:
+                cart_item.delete()
         else:
-            product = get_object_or_404(Product, pk=product_id)
             if quantity > product.quantity:
                 return JsonResponse(
                     {'error': f'Only {product.quantity} unit(s) in stock.'}, status=400
                 )
-            if product_id in cart:
-                cart[product_id]['quantity'] = quantity
+            if cart_item:
+                cart_item.quantity = quantity
+                cart_item.unit_price = product.price
+                cart_item.save()
+            else:
+                CartItem.objects.create(
+                    cart=cart,
+                    product=product,
+                    quantity=quantity,
+                    unit_price=product.price,
+                    subtotal=product.price * quantity,
+                )
 
-        save_cart(request, cart)
         cart_items, cart_total = _build_cart_display(cart)
         return JsonResponse({
             'success':    True,
-            'cart_count': sum(v['quantity'] for v in cart.values()),
+            'cart_count': sum(item['quantity'] for item in cart_items),
             'cart_total': cart_total,
             'cart_items': cart_items,
         })
@@ -371,13 +437,15 @@ def cart_remove(request):
     try:
         data       = json.loads(request.body)
         product_id = str(data.get('product_id'))
-        cart       = get_cart(request)
-        cart.pop(product_id, None)
-        save_cart(request, cart)
+        cart       = get_active_cart(request)
+        if cart.status != 'open':
+            cart.status = 'open'
+            cart.save(update_fields=['status', 'updated_at'])
+        CartItem.objects.filter(cart=cart, product_id=product_id).delete()
         cart_items, cart_total = _build_cart_display(cart)
         return JsonResponse({
             'success':    True,
-            'cart_count': sum(v['quantity'] for v in cart.values()),
+            'cart_count': sum(item['quantity'] for item in cart_items),
             'cart_total': cart_total,
             'cart_items': cart_items,
         })
@@ -388,55 +456,118 @@ def cart_remove(request):
 @require_POST
 @login_required_custom
 def cart_clear(request):
-    save_cart(request, {})
+    cart = get_active_cart(request)
+    cart.items.all().delete()
+    cart.status = 'open'
+    cart.save(update_fields=['status', 'updated_at'])
     return JsonResponse({'success': True})
 
 
 # ── Checkout ──────────────────────────────────────────────────────────────────
 
-@require_POST
 @login_required_custom
 def checkout(request):
-    cart = get_cart(request)
+    cart = get_active_cart(request)
+    cart_items, cart_total = _build_cart_display(cart)
 
-    if not cart:
+    if not cart_items:
         messages.error(request, 'Your cart is empty.')
         return redirect('store:pos')
 
+    if request.method == 'GET':
+        cart.status = 'checkout_pending'
+        cart.save(update_fields=['status', 'updated_at'])
+        return render(request, 'store/payment.html', {
+            'cart': cart,
+            'cart_items': cart_items,
+            'cart_total': cart_total,
+            'payment_methods': PAYMENT_METHOD_CHOICES,
+            'low_stock_count': Product.objects.filter(
+                Q(quantity__lte=F('restock_threshold'))
+            ).count(),
+        })
+
+    action = request.POST.get('action', 'confirm')
+    if action == 'cancel':
+        cart.status = 'cancelled'
+        cart.save(update_fields=['status', 'updated_at'])
+        release_active_cart(request, cart)
+        messages.info(request, 'Checkout cancelled. No inventory was deducted.')
+        return redirect('store:pos')
+
+    payment_method = request.POST.get('payment_method', 'cash')
+    valid_methods = {method for method, _label in PAYMENT_METHOD_CHOICES}
+    if payment_method not in valid_methods:
+        messages.error(request, 'Select a valid payment method.')
+        return redirect('store:checkout')
+
+    try:
+        amount_received = Decimal(request.POST.get('amount_received') or '0')
+    except (InvalidOperation, TypeError):
+        messages.error(request, 'Enter a valid amount received.')
+        return redirect('store:checkout')
+
+    if amount_received < cart_total:
+        messages.error(request, 'Amount received cannot be less than the cart total.')
+        return redirect('store:checkout')
+
     try:
         with db_transaction.atomic():
-            total = 0
-            sale  = Sale.objects.create(cashier=request.user, total_amount=0)
+            locked_cart = (
+                Cart.objects
+                .select_for_update()
+                .prefetch_related('items__product')
+                .get(pk=cart.pk, cashier=request.user, status='checkout_pending')
+            )
+            locked_items = list(locked_cart.items.select_related('product'))
 
-            for pid, item in cart.items():
-                product = Product.objects.select_for_update().get(pk=pid)
+            if not locked_items:
+                raise ValueError('Your cart is empty.')
 
-                if product.quantity < item['quantity']:
+            total = Decimal('0')
+            sale_items = []
+            for item in locked_items:
+                product = Product.objects.select_for_update().get(pk=item.product_id)
+                if product.quantity < item.quantity:
                     raise ValueError(
                         f'Insufficient stock for "{product.name}". '
-                        f'Available: {product.quantity}, requested: {item["quantity"]}.'
+                        f'Available: {product.quantity}, requested: {item.quantity}.'
                     )
 
-                subtotal = float(product.price) * item['quantity']
-                total   += subtotal
+                subtotal = product.price * item.quantity
+                total += subtotal
+                sale_items.append({
+                    'product': product,
+                    'quantity': item.quantity,
+                    'price': item.unit_price,
+                    'subtotal': subtotal,
+                })
 
-                SaleItem.objects.create(
-                    sale=sale,
-                    product=product,
-                    quantity=item['quantity'],
-                    price=product.price,
-                    subtotal=subtotal,
-                )
+            if amount_received < total:
+                raise ValueError('Amount received cannot be less than the cart total.')
 
-                # Deduct stock
+            sale = Sale.objects.create(
+                cart=locked_cart,
+                cashier=request.user,
+                total_amount=total,
+                payment_method=payment_method,
+                payment_status='paid',
+                amount_received=amount_received,
+                change_given=amount_received - total,
+                payment_confirmed_by=request.user,
+            )
+
+            for item in sale_items:
+                SaleItem.objects.create(sale=sale, **item)
+
+                product = item['product']
                 product.quantity -= item['quantity']
                 product.save()
 
-            sale.total_amount = total
-            sale.save()
+            locked_cart.status = 'completed'
+            locked_cart.save(update_fields=['status', 'updated_at'])
 
-        # Clear cart after successful checkout
-        save_cart(request, {})
+        release_active_cart(request, cart)
         return redirect('store:receipt', pk=sale.pk)
 
     except ValueError as e:
@@ -506,16 +637,7 @@ def reports(request):
         .order_by('-total')
     )
 
-    # Last 7 days revenue for chart
-    chart_labels  = []
-    chart_data    = []
-    for i in range(6, -1, -1):
-        day = today - timedelta(days=i)
-        rev = Sale.objects.filter(
-            created_at__date=day
-        ).aggregate(t=Sum('total_amount'))['t'] or 0
-        chart_labels.append(day.strftime('%d %b'))
-        chart_data.append(float(rev))
+    chart_labels, chart_data = get_recent_revenue_chart_data(today)
 
     context = {
         'sales':               sales.order_by('-created_at')[:50],
